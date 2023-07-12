@@ -1,0 +1,321 @@
+library(stringr)
+   library(ggplot2)
+   library(dplyr)
+   library(tidyr)
+   library(tibble)
+   library(readr)
+   library(maps)
+   library(glue)
+library("Cairo")
+#library("cairoDevice")
+   library("phyloseq")
+library("readxl")
+library("openxlsx")
+library("gplots")
+library(forcats)
+library(mgcv)
+library(ggtext)
+library(microbiome)
+library(microViz)
+
+#Create phyloseq object
+otu_mat<- read_excel("Otu table_1901-1802.xlsx")
+tax_mat<- read_excel("Tax table_1901-1802.xlsx")
+samples_df <- read_excel("Metadata.xlsx")
+
+
+
+otu_mat <- otu_mat %>%
+    tibble::column_to_rownames("OTUNumber") 
+
+tax_mat <- tax_mat %>% 
+    tibble::column_to_rownames("OTUNumber")
+
+samples_df <- samples_df %>% 
+    tibble::column_to_rownames("Sample_ID") 
+
+
+
+otu_mat <- as.matrix(otu_mat)
+tax_mat <- as.matrix(tax_mat)
+
+
+
+ OTU = otu_table(otu_mat, taxa_are_rows = TRUE)
+ TAX = tax_table(tax_mat)
+ samples = sample_data(samples_df)
+  
+ CTD_ANT <- phyloseq(OTU, TAX, samples)
+ CTD_ANT
+
+
+#filter Sorting that have metadata available, no replicates and CTD only (no underway)
+CTD_ANT<- subset_samples(CTD_ANT, Metadata=="yes")
+CTD_ANT<- subset_samples(CTD_ANT, Replicate=="no")
+
+
+#Normalize number of reads in each sample using median sequencing depth.
+ total = median(sample_sums(CTD_ANT))
+ standf = function(x, t=total) round(t * (x / sum(x)))
+ CTD_ANT_norm = transform_sample_counts(CTD_ANT, standf)
+
+# Filtration based on Taxonomy - for PROTISTS
+
+ps_phyto <-  CTD_ANT_norm %>%  
+     subset_taxa(Division %in% c("Chlorophyta", "Dinoflagellata", "Cryptophyta", "Haptophyta", "Ochrophyta", "Cercozoa", "Radiolaria")) %>%
+   subset_taxa(!(Class %in% c("Syndiniales", "Sarcomonadea")))
+
+ps_phyto
+
+
+# Surface samples
+phyto_surface <-  ps_phyto %>%  
+  subset_samples(Zeu_layer == "surface") #%>%
+  #subset_samples(Water_mass.TS1 != "ANT" ) %>%
+  #subset_samples((Sampling_Type != "Blank" ))
+
+## visualizing composition - barplots
+
+ps_phyto %>% 
+  #subset_samples(Dens_layer == "Surface")%>%
+ #tax_filter(min_prevalence = 1) %>%
+  comp_barplot(
+    tax_level = "Class",  n_taxa = 12, sample_order = "default",
+    merge_other = FALSE 
+    # set merge_other = TRUE (the default) to remove outlines from inside "other" category
+  )+
+  facet_wrap("Cruise", nrow = 2, scales = "free") +
+  labs(x = NULL, y = NULL) +
+  theme(
+    axis.ticks.x = element_blank()
+  ) + theme(text = element_text(size=12), axis.text.x = element_text(angle=45, hjust=1, )) 
+
+##  CONSTRAINED Ordination + PERMANOVA surface
+
+
+##ALL
+# calculate distances
+Bray_dists <-
+phyto_surface %>%
+   subset_samples(Region == "RSR") %>%
+  #subset_samples(Cruise == "TAN1802") %>%
+  tax_filter(min_prevalence = 0.1, tax_level = "Species") %>%
+  tax_agg("Species") %>%
+  tax_transform("identity") %>%
+  dist_calc("bray")
+#> Proportional min_prevalence given: 0.1 --> min 23/222 samples.
+
+# the more permutations you request, the longer it takes
+# but also the more stable and precise your p-values become
+RDA_perm <- dist_permanova(
+  data = Bray_dists,
+  seed = 321, # for set.seed to ensure reproducibility of random process
+  n_perms = 999, # you should use at least 999!
+  n_processes = 1,
+  variables = "Temperature + Salinity + NO3 + MLD_0.03 + Zeu+ DRP + DRSi+ Chla_total + O2_anomaly + NH4"
+)
+
+# view the permanova results
+permanova <- perm_get(RDA_perm) %>% as.data.frame()
+write.csv(permanova, file = "permanova_Sp_all.csv")
+permanova
+
+perm2 <- dist_permanova(data = Bray_dists, variables = c("Temperature", "Salinity","NO3","MLD_0.03", "Zeu", "O2_anomaly", "Chla_total",  "DRP", "DRSi", "NH4"), seed = 321)
+# Dropping samples with missings: 81
+# 2021-05-03 17:04:42 - Starting PERMANOVA with 999 perms with 1 processes
+perm_get(perm2)
+
+ord <- ord_calc(perm2, constraints = c( "Salinity","NO3","MLD_0.03", "Zeu", "O2_anomaly", "DRSi")) %>%
+  ord_plot(
+    colour = "Cruise", size = 3, shape="Ross_Sea_Regions",
+    constraint_vec_style = list(colour = "black", size = 1),
+    constraint_lab_style = list(colour = "black", size = 3) 
+  ) +  scale_color_manual(values =c("#FF0000", "#00688b")) +
+  scale_shape_manual(values=c(3, 2, 1, 7))
+#+ geom_text(aes(label = CTD), position = nudge, size=3)
+  #stat_ellipse(aes(colour = Antarct_Lat)) + 
+  # scale_color_brewer(palette = "Dark2") +
+   
+ 
+  #scale_shape_manual(values=c(0, 1, 2, 5, 7, 8, 10, 3, 6)) 
+
+#> 
+#> Centering (mean) and scaling (sd) the constraints and conditions:
+#>  weight
+#>  female
+
+ord
+ggsave("Figure 9.pdf",  dpi = 300,  width = 6, height = 4, scale=1.2)
+
+#1802
+# calculate distances
+Bray_dists <-
+phyto_surface %>%
+   subset_samples(Region == "RSR") %>%
+  subset_samples(Cruise == "TAN1802") %>%
+  tax_filter(min_prevalence = 0.1, tax_level = "Species") %>%
+  tax_agg("Species") %>%
+  tax_transform("identity") %>%
+  dist_calc("bray")
+#> Proportional min_prevalence given: 0.1 --> min 23/222 samples.
+
+# the more permutations you request, the longer it takes
+# but also the more stable and precise your p-values become
+RDA_perm <- dist_permanova(
+  data = Bray_dists,
+  seed = 321, # for set.seed to ensure reproducibility of random process
+  n_perms = 999, # you should use at least 999!
+  n_processes = 1,
+  variables = "Temperature + Salinity + NO3 + MLD_0.03 + Zeu+ DRP + DRSi+ Chla_total + O2_anomaly"
+)
+
+# Dropping samples with missings: 2
+#2021-05-10 17:52:25 - Starting PERMANOVA with 999 perms with 1 processes
+#2021-05-10 17:52:26 - Finished PERMANOVA
+
+# view the permanova results
+permanova <- perm_get(RDA_perm) %>% as.data.frame()
+write.csv(permanova, file = "permanova_Sp_1802.csv")
+permanova
+
+
+
+```
+
+
+```{r pressure, echo=FALSE}
+##1802
+perm2 <- dist_permanova(data = Bray_dists, variables = c("Temperature", "Salinity","NO3","MLD_0.03", "Zeu", "O2_anomaly", "Chla_total",  "DRP", "DRSi"), seed = 321)
+# Dropping samples with missings: 81
+# 2021-05-03 17:04:42 - Starting PERMANOVA with 999 perms with 1 processes
+perm_get(perm2)
+# Permutation test for adonis under reduced model
+# Marginal effects of terms
+# Permutation: free
+# Number of permutations: 999
+# 
+# vegan::adonis2(formula = formula, data = metadata, permutations = n_perms, by = by, parallel = parall)
+#            Df SumOfSqs      R2      F Pr(>F)    
+#Temperature  1  0.11101 0.06184 4.0178  0.004 ** 
+#Salinity     1  0.02725 0.01518 0.9863  0.447    
+#NO3          1  0.12889 0.07180 4.6649  0.002 ** 
+#MLD_0.03     1  0.07731 0.04306 2.7980  0.036 *  
+#Zeu          1  0.09763 0.05438 3.5334  0.011 *  
+#O2_anomaly   1  0.03385 0.01886 1.2251  0.281    
+#Chla_total   1  0.06478 0.03608 2.3445  0.060 .  
+#DRP          1  0.13237 0.07373 4.7908  0.001 ***
+#DRSi         1  0.21071 0.11737 7.6261  0.001 ***
+#Residual    11  0.30393 0.16930                  
+#Total       20  1.79521 1.00000                  
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
+ord <- ord_calc(perm2, constraints = c("Temperature","NO3","MLD_0.03", "Zeu", "DRP", "DRSi")) %>%
+  ord_plot(
+    colour = "Ross_Sea_Regions", size = 3, 
+    constraint_vec_style = list(colour = "black", size = 1),
+    constraint_lab_style = list(colour = "black") 
+  ) +  scale_color_manual(values =c("#00688b", "#00b5e2")) 
+ # scale_shape_manual(values=c(2,1))
+
+  #+ geom_text(aes(label = CTD), position = nudge, size=3)
+  #stat_ellipse(aes(colour = Antarct_Lat)) + 
+  # scale_color_brewer(palette = "Dark2") +
+   
+ 
+  #scale_shape_manual(values=c(0, 1, 2, 5, 7, 8, 10, 3, 6)) 
+
+#> 
+#> Centering (mean) and scaling (sd) the constraints and conditions:
+#>  weight
+#>  female
+
+ord
+ggsave("RDA_RSR_Zeu_sp_1802.pdf",  dpi = 300,  width = 6, height = 4, scale=1.2)
+
+#1901
+# calculate distances
+Bray_dists <-
+phyto_surface %>%
+   subset_samples(Region == "RSR") %>%
+  subset_samples(Cruise == "TAN1901") %>%
+  tax_filter(min_prevalence = 0.1, tax_level = "Species") %>%
+  tax_agg("Species") %>%
+  tax_transform("identity") %>%
+  dist_calc("bray")
+#> Proportional min_prevalence given: 0.1 --> min 23/222 samples.
+
+# the more permutations you request, the longer it takes
+# but also the more stable and precise your p-values become
+RDA_perm <- dist_permanova(
+  data = Bray_dists,
+  seed = 321, # for set.seed to ensure reproducibility of random process
+  n_perms = 999, # you should use at least 999!
+  n_processes = 1,
+  variables = "Temperature + Salinity + NO3 + MLD_0.03 + Zeu+ DRP + DRSi+ Chla_total + O2_anomaly"
+)
+
+# Dropping samples with missings: 2
+#2021-05-10 17:52:25 - Starting PERMANOVA with 999 perms with 1 processes
+#2021-05-10 17:52:26 - Finished PERMANOVA
+
+# view the permanova results
+permanova <- perm_get(RDA_perm) %>% as.data.frame()
+write.csv(permanova, file = "permanova_Sp_1901.csv")
+permanova
+
+
+
+##1901
+perm2 <- dist_permanova(data = Bray_dists, variables = c("Temperature", "Salinity","NO3","MLD_0.03", "Zeu", "O2_anomaly", "Chla_total",  "DRP", "DRSi"), seed = 321)
+# Dropping samples with missings: 81
+# 2021-05-03 17:04:42 - Starting PERMANOVA with 999 perms with 1 processes
+perm_get(perm2)
+# Permutation test for adonis under reduced model
+# Marginal effects of terms
+# Permutation: free
+# Number of permutations: 999
+# 
+# vegan::adonis2(formula = formula, data = metadata, permutations = n_perms, by = by, parallel = parall)
+#            Df SumOfSqs      R2       F Pr(>F)    
+#Temperature  1   0.1240 0.01337  1.4958  0.186    
+#Salinity     1   0.8435 0.09098 10.1784  0.001 ***
+#NO3          1   0.2029 0.02189  2.4486  0.020 *  
+#MLD_0.03     1   0.2013 0.02171  2.4288  0.035 *  
+#Zeu          1   0.1356 0.01462  1.6357  0.142    
+#O2_anomaly   1   0.6564 0.07080  7.9209  0.001 ***
+#Chla_total   1   0.1374 0.01482  1.6584  0.142    
+#DRP          1   0.0459 0.00495  0.5543  0.755    
+#DRSi         1   0.4878 0.05261  5.8861  0.001 ***
+#Residual    58   4.8067 0.51842                   
+#Total       67   9.2718 1.00000                   
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#nudge <- position_nudge(y = 0.1)
+
+
+
+
+ord <- ord_calc(perm2, constraints = c( "Salinity","NO3","MLD_0.03", "O2_anomaly", "DRSi")) %>%
+  ord_plot(
+    colour = "Ross_Sea_Regions", size = 3, 
+    constraint_vec_style = list(colour = "black", size = 1),
+    constraint_lab_style = list(colour = "black") 
+  ) +  scale_color_manual(values =c("#dc6900", "#00688b", "#00b5e2","#44c45d"))
+  #+ geom_text(aes(label = CTD), position = nudge, size=3)
+  #stat_ellipse(aes(colour = Antarct_Lat)) + 
+  # scale_color_brewer(palette = "Dark2") +
+   
+#shape="Ross_Sea_Regions",
+ 
+  #scale_shape_manual(values=c(0, 1, 2, 5, 7, 8, 10, 3, 6)) 
+
+#> 
+#> Centering (mean) and scaling (sd) the constraints and conditions:
+#>  weight
+#>  female
+
+ord
+ggsave("RDA_RSR_Zeu_sp_1901.pdf", dpi = 300,  width = 6, height = 4, scale=1.2)
