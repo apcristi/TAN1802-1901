@@ -21,11 +21,18 @@ Note: to install cutadapt on macOS, cannot use github link above. Need to instal
   2) Follow this guide to install conda on macOS (https://conda.io/projects/conda/en/latest/user-guide/install/macos.html).
   3) Add bioconda channel (https://bioconda.github.io/user/install.html).
   4) install cutadapt.
-
-2.- MicroViz 
+     
+2.- Phyloseq
+- Pipeline ada[ted from https://vaulot.github.io/tutorials/Phyloseq_tutorial.html
+- Input files
+  1) Metadata
+  2) Otu table_1901-1802
+  3) Tax table_1901-1802
+     
+3.- MicroViz 
 - Pipeline adapted from https://david-barnett.github.io/microViz/
 
-3.- MixOmics
+4.- MixOmics
 - Pipeline adapted from http://mixomics.org/case-studies/splsda-srbct-case-study/
 - Input files for MixOmics:
   1) 1802_Ps_correlation_OTU (ASV table TAN1802)
