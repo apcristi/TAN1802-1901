@@ -27,3 +27,8 @@ Pipeline adapted from https://david-barnett.github.io/microViz/
 
 3.- MixOmics
 Pipeline adapted from http://mixomics.org/case-studies/splsda-srbct-case-study/
+Input files for MixOmics:
+  1) 1802_Ps_correlation_OTU (ASV table TAN1802)
+  2) TAN1802 (Metadata TAN1802)
+  3) 1901_Ps_correlation_OTU (ASV table TAN1901)
+  4) TAN1901 (Metadata TAN1901)
