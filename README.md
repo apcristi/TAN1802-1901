@@ -23,11 +23,11 @@ Note: to install cutadapt on macOS, cannot use github link above. Need to instal
   4) install cutadapt.
 
 2.- MicroViz 
-Pipeline adapted from https://david-barnett.github.io/microViz/
+- Pipeline adapted from https://david-barnett.github.io/microViz/
 
 3.- MixOmics
-Pipeline adapted from http://mixomics.org/case-studies/splsda-srbct-case-study/
-Input files for MixOmics:
+- Pipeline adapted from http://mixomics.org/case-studies/splsda-srbct-case-study/
+- Input files for MixOmics:
   1) 1802_Ps_correlation_OTU (ASV table TAN1802)
   2) TAN1802 (Metadata TAN1802)
   3) 1901_Ps_correlation_OTU (ASV table TAN1901)
