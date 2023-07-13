@@ -1,11 +1,9 @@
 # TAN1802-1901
+Files:
 
-Script and data for:
+"Stations surface" Excel file includes metadata for the surface depth (10 to 25m) of all stations.
 
-Raw sequences from Illumina Miseq sequencing deposited on NCBI at bioproject number numbers PRJNA756172 for TAN1802 and PRJNA974160 for TAN1901
-
-CTD data has been submitted to PANGAEA repository and an URL will be provided once it is generated
-
+Scripts:
 
 1.- Dada2
 Pipeline adapted from https://vaulot.github.io/tutorials/R_dada2_tutorial.html
@@ -23,8 +21,8 @@ Note: to install cutadapt on macOS, cannot use github link above. Need to instal
   4) install cutadapt.
      
 2.- Phyloseq
-- Pipeline ada[ted from https://vaulot.github.io/tutorials/Phyloseq_tutorial.html
-- Input files
+- Pipeline adapted from https://vaulot.github.io/tutorials/Phyloseq_tutorial.html
+- Input files (excel files)
   1) Metadata
   2) Otu table_1901-1802
   3) Tax table_1901-1802
@@ -34,7 +32,7 @@ Note: to install cutadapt on macOS, cannot use github link above. Need to instal
 
 4.- MixOmics
 - Pipeline adapted from http://mixomics.org/case-studies/splsda-srbct-case-study/
-- Input files for MixOmics:
+- Input files (excel files)
   1) 1802_Ps_correlation_OTU (ASV table TAN1802)
   2) TAN1802 (Metadata TAN1802)
   3) 1901_Ps_correlation_OTU (ASV table TAN1901)
