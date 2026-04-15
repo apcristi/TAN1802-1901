@@ -1,4 +1,4 @@
-# TAN1802-1901
+# "Environmental driving forces and phytoplankton diversity across the Ross Sea region during a summer–autumn transition"  https://doi.org/10.1002/lno.12526
 Files:
 
 "Stations surface" Excel file includes metadata for the surface depth (10 to 25m) of all stations.
